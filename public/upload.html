@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload and Display</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        form {
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        form:hover{
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+            margin-bottom: 20px;
+            transition: 0.4s;
+        }
+        input[type="file"] {
+            display: block;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #filesList {
+            list-style-type: none;
+            padding: 0;
+        }
+        #filesList li {
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        .deleteButton {
+            margin-left: 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .deleteButton:hover {
+            background-color: #c82333;
+        }
+        .renameButton {
+            margin-left: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .renameButton:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col text-center">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <h2>Upload a CSV or Excel File</h2>
+                    <input type="file" id="fileInput" name="file" accept=".csv, .xlsx" required class="form-control"/>
+                    <button type="submit">Upload</button>
+                    <p id="message"></p>
+                </form>
+            </div>
+            <div class="col text-center list">
+                <h2>Uploaded Files</h2>
+                <ul id="filesList"></ul>
+            </div>
+        </div>
+    </div>
+    <div class="d-flex">
+        <button id="saveButton" style="display:none;" class="me-2">Save Changes</button>
+        <button id="addRowButton" style="display:none;" class="me-2">Add Row</button>
+        <button id="addColumnButton" style="display:none;" class="me-2">Add Column</button>
+        <button id="downloadCsvButton" style="display:none;" class="me-2">Download as CSV</button>
+        <button id="downloadExcelButton" style="display:none;" class="me-2">Download as Excel</button>
+    </div>
+    <table id="fileDetailsTable" style="display:none;" class="table-dark table">
+        <thead id="tableHeader"></thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+        <ul id="filesList"></ul>
+        <div class="d-flex">
+            <button id="saveButton" style="display:none;" class="me-2">Save Changes</button>
+            <button id="addRowButton" style="display:none;" class="me-2">Add Row</button>
+            <button id="addColumnButton" style="display:none;" class="me-2">Add Column</button>
+            <button id="downloadCsvButton" style="display:none;" class="me-2">Download as CSV</button>
+            <button id="downloadExcelButton" style="display:none;" class="me-2">Download as Excel</button>
+            <input type="color" id="colorPicker" style="display:none;">
+        </div>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            try {
+                const response = await fetch('http://localhost:3000/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+                const result = await response.text();
+                document.getElementById('message').textContent = result;
+                loadFiles();
+            } catch (error) {
+                document.getElementById('message').textContent = 'An error occurred: ' + error.message;
+            }
+        });
+
+        async function loadFiles() {
+            try {
+                const response = await fetch('http://localhost:3000/files');
+                const files = await response.json();
+                const filesList = document.getElementById('filesList');
+                filesList.innerHTML = '';
+
+                files.forEach(file => {
+                    const li = document.createElement('li');
+                    li.textContent = file.filename;
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.className = 'deleteButton';
+                    deleteButton.addEventListener('click', () => deleteFile(file._id, file.filename));
+
+                    const renameButton = document.createElement('button');
+                    renameButton.textContent = 'Rename';
+                    renameButton.className = 'renameButton';
+                    renameButton.addEventListener('click', () => renameFile(file._id, file.filename));
+
+                    li.appendChild(deleteButton);
+                    li.appendChild(renameButton);
+                    li.addEventListener('click', () => loadFileDetails(file._id, file.filename));
+                    filesList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('An error occurred:', error);
+            }
+        }
+
+
+        async function loadFileDetails(fileId, filename) {
+            try {
+                const response = await fetch(`http://localhost:3000/files/${fileId}`);
+                const file = await response.json();
+
+                const tableHeader = document.getElementById('tableHeader');
+                const tableBody = document.getElementById('tableBody');
+                tableHeader.innerHTML = '';
+                tableBody.innerHTML = '';
+
+                if (file.data.length > 0) {
+                    const headers = Object.keys(file.data[0]);
+                    const headerRow = document.createElement('tr');
+                    headers.forEach(header => {
+                        const th = document.createElement('th');
+                        th.textContent = header;
+                        headerRow.appendChild(th);
+                    });
+                    tableHeader.appendChild(headerRow);
+
+                    file.data.forEach(row => {
+                        const tr = document.createElement('tr');
+                        headers.forEach(header => {
+                            const td = document.createElement('td');
+                            td.contentEditable = true;
+                            td.textContent = row[header];
+                            td.addEventListener('contextmenu', (e) => {
+                                e.preventDefault();
+                                const colorPicker = document.getElementById('colorPicker');
+                                colorPicker.style.display = 'block';
+                                colorPicker.style.position = 'absolute';
+                                colorPicker.style.left = `${e.pageX}px`;
+                                colorPicker.style.top = `${e.pageY}px`;
+                                colorPicker.onchange = () => {
+                                    td.style.backgroundColor = colorPicker.value;
+                                    colorPicker.style.display = 'none';
+                                };
+                            });
+                            tr.appendChild(td);
+                        });
+                        tableBody.appendChild(tr);
+                    });
+
+                    document.getElementById('fileDetailsTable').style.display = 'table';
+                    document.getElementById('saveButton').style.display = 'block';
+                    document.getElementById('addRowButton').style.display = 'block';
+                    document.getElementById('addColumnButton').style.display = 'block';
+                    document.getElementById('downloadCsvButton').style.display = 'block';
+                    document.getElementById('downloadExcelButton').style.display = 'block';
+
+                    document.getElementById('saveButton').onclick = () => saveFileDetails(fileId, headers);
+                    document.getElementById('addRowButton').onclick = () => addRow(headers);
+                    document.getElementById('addColumnButton').onclick = () => addColumn(headers);
+                    document.getElementById('downloadCsvButton').onclick = () => downloadFile(fileId, 'csv', filename);
+                    document.getElementById('downloadExcelButton').onclick = () => downloadFile(fileId, 'excel', filename);
+                }
+            } catch (error) {
+                console.error('An error occurred:', error);
+            }
+        }
+
+        async function saveFileDetails(fileId, headers) {
+            const tableBody = document.getElementById('tableBody');
+            const rows = tableBody.querySelectorAll('tr');
+            const data = [];
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const rowData = {};
+                cells.forEach((cell, index) => {
+                    rowData[headers[index]] = cell.textContent;
+                });
+                data.push(rowData);
+            });
+
+            try {
+                const response = await fetch(`http://localhost:3000/files/${fileId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ data }),
+                });
+
+                const result = await response.text();
+                alert(result);
+            } catch (error) {
+                console.error('An error occurred:', error);
+            }
+        }
+
+        async function loadFiles() {
+            try {
+                const response = await fetch('http://localhost:3000/files');
+                const files = await response.json();
+                const filesList = document.getElementById('filesList');
+                filesList.innerHTML = '';
+
+                files.forEach(file => {
+                    const li = document.createElement('li');
+                    li.textContent = file.filename;
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = 'Delete';
+                    deleteButton.className = 'deleteButton';
+                    deleteButton.addEventListener('click', () => deleteFile(file._id, file.filename));
+
+                    li.appendChild(deleteButton);
+                    li.addEventListener('click', () => loadFileDetails(file._id, file.filename));
+                    filesList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('An error occurred:', error);
+            }
+        }
+
+        async function deleteFile(fileId, filename) {
+            const confirmDelete = confirm(`Are you sure you want to delete the file "${filename}"?`);
+            if (!confirmDelete) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://localhost:3000/files/${fileId}`, {
+                    method: 'DELETE',
+                });
+
+                const result = await response.text();
+                alert(result);
+                loadFiles();
+            } catch (error) {
+                console.error('An error occurred:', error);
+            }
+        }
+
+
+        function addRow(headers) {
+            const tableBody = document.getElementById('tableBody');
+            const tr = document.createElement('tr');
+            headers.forEach(() => {
+                const td = document.createElement('td');
+                td.contentEditable = true;
+                tr.appendChild(td);
+            });
+            tableBody.appendChild(tr);
+        }
+
+        function addColumn(headers) {
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+            const newHeader = prompt('Enter new column name:');
+            if (newHeader) {
+                headers.push(newHeader);
+                const th = document.createElement('th');
+                th.textContent = newHeader;
+                tableHeader.querySelector('tr').appendChild(th);
+
+                tableBody.querySelectorAll('tr').forEach(row => {
+                    const td = document.createElement('td');
+                    td.contentEditable = true;
+                    row.appendChild(td);
+                });
+            }
+        }
+
+        async function downloadFile(fileId, format, filename) {
+            try {
+                const response = await fetch(`http://localhost:3000/download/${fileId}/${format}`);
+                const blob = await response.blob();
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${filename}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (error) {
+                console.error('An error occurred:', error);
+            }
+        }
+        async function renameFile(fileId, oldFilename) {
+            const newFilename = prompt('Enter the new filename:', oldFilename);
+            if (newFilename && newFilename !== oldFilename) {
+                try {
+                    const response = await fetch(`http://localhost:3000/files/${fileId}/rename`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ newFilename }),
+                    });
+
+                    const result = await response.text();
+                    alert(result);
+                    loadFiles();
+                } catch (error) {
+                    console.error('An error occurred:', error);
+                }
+            }
+        }
+        // Load files on page load
+        loadFiles();
+    </script>
+
+</body>
+</html>
